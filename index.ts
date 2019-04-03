@@ -21,6 +21,7 @@ if (!slackToken) {
 }
 
 // get user data
+// so you need create /json/user.json file and put users ID.
 const userData: string[] = require('./json/user.json').user;
 // api
 const api: string = 'https://kenkoooo.com/atcoder/atcoder-api/results?user=';
