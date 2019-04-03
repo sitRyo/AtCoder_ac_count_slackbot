@@ -11,7 +11,9 @@ interface StoreData {
   name: string;
 }
 
-// token (from .env @see dotenv)
+// from .env @see dotenv
+const channel_random = require('dotenv').config().parsed.CHANNEL_RANDOM;
+const channel_test = require('dotenv').config().parsed.CHANNEL_TEST;
 const slackToken: string = require('dotenv').config().parsed.SLACK_TOKEN;
 if (!slackToken) {
   console.log('Error: Specify token in environment.');
@@ -20,8 +22,6 @@ if (!slackToken) {
 
 // get user data
 const userData: string[] = require('./json/user.json').user;
-// store user number of ac
-let numofac: StoreData[] = [];
 // api
 const api: string = 'https://kenkoooo.com/atcoder/atcoder-api/results?user=';
 
@@ -44,6 +44,19 @@ function spawnSlackBot() {
     }))
     .then(results => {
       console.log(results);
+      let sendMessage: string = '今日の精進状況\n'
+      for (let result of results) {
+        sendMessage += result;
+      }
+      /*
+      bot.say({
+        text: sendMessage,
+        channel: channel_random,
+      })*/
+      bot.say({
+        text: sendMessage,
+        channel: channel_test,
+      })
     });
   });
 }
@@ -51,6 +64,8 @@ function spawnSlackBot() {
 function getUserData(name: string) {
   return new Promise(resolve => {
     // TODO: 0時に走らせるからその24時間前までの間のACを数える
+
+    // NOTE: js date function returns unixtime stamp in a millisecond of accuracy.
     const endTime: number = Math.floor(Date.now() / 1000);
     const startTime: number = endTime - 86400;
   
@@ -70,11 +85,12 @@ function getUserData(name: string) {
           retData.pointsum += data.point;
         }
       }
-      // console.log(retData);
-      resolve(retData);
+
+      const message = `${retData.name}: AC ${retData.ac}, point sum ${retData.pointsum}\n`;
+      resolve(message);
     })
     .catch((err: string) => {
-      // 別にprocessを終わらせる必要はない。
+      // Don't need exit.
       console.log(err);
     })
   })
