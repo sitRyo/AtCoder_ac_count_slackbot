@@ -7,6 +7,7 @@ import { reject } from 'async';
 
 interface StoreData {
   ac: number;
+  pointsum: number;
   name: string;
 }
 
@@ -29,48 +30,55 @@ let controller: botkit.SlackController = botkit.slackbot({
   debug: true,
 });
 
-controller.spawn({
-  token: slackToken,
-}).startRTM((err: string, bot: SlackBot, payload: any) => {
-  if (err) {
-    console.log('Error: Cannot to Slack');
-    process.exit(1);
-  }
-  // console.log(userData);
-  for (let i = 0; i < userData.length; i++) {
-    console.log(i);
-    getUserData(userData[i]);
-  }
-
-  console.log(numofac);
-});
-
-async function getUserData(name: string) {
-  // TODO: 0時に走らせるからその24時間前までの間のACを数える
-  const endTime: number = Math.floor(Date.now() / 1000);
-  const startTime: number = endTime - 86400;
-
-  let tempData: StoreData = {
-    ac: 0,
-    name: name,
-  };
-  let ac: number = 0;
-  // console.log(endTime);
-  await axios.get(api + name)
-  .then((response: AxiosResponse) => {
-    for (let i = 0; i < response.data.length; i++) {
-      const data = response.data[i];
-      console.log(data);
-      if (data.epoch_second < endTime && data.epoch_second >= startTime && data.result === 'AC') {
-        tempData.ac += 1;
-      } else {
-        break;
-      }
+function spawnSlackBot() {
+  controller.spawn({
+    token: slackToken,
+  }).startRTM((err: string, bot: SlackBot, payload: any) => {
+    if (err) {
+      console.log('Error: Cannot to Slack');
+      process.exit(1);
     }
-    numofac.push(tempData);
-  })
-  .catch((err: string) => {
-    // 別にprocessを終わらせる必要はない。
-    console.log(err);
-  })
+
+    Promise.all(userData.map(name => {
+      return getUserData(name);
+    }))
+    .then(results => {
+      console.log(results);
+    });
+  });
 }
+
+function getUserData(name: string) {
+  return new Promise(resolve => {
+    // TODO: 0時に走らせるからその24時間前までの間のACを数える
+    const endTime: number = Math.floor(Date.now() / 1000);
+    const startTime: number = endTime - 86400;
+  
+    let retData: StoreData = {
+      ac: 0,
+      pointsum: 0,
+      name: name,
+    };
+  
+    axios.get(api + name)
+    .then((response: AxiosResponse) => {
+      const size = response.data.length;
+      for (let i = 0; i < size; i++) {
+        const data: any = response.data[i];
+        if (data.epoch_second < endTime && data.epoch_second >= startTime && data.result === 'AC') {
+          retData.ac += 1;
+          retData.pointsum += data.point;
+        }
+      }
+      // console.log(retData);
+      resolve(retData);
+    })
+    .catch((err: string) => {
+      // 別にprocessを終わらせる必要はない。
+      console.log(err);
+    })
+  })
+
+}
+
+spawnSlackBot();
