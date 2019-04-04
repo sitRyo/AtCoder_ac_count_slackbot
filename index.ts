@@ -5,6 +5,7 @@ import { response } from 'express';
 import { resolve } from 'path';
 import { reject } from 'async';
 import { CronJob } from 'cron';
+import { start } from 'repl';
 
 interface StoreData {
   ac: number;
@@ -58,16 +59,18 @@ function spawnSlackBot() {
     token: slackToken,
   }).startRTM((err: string, bot: SlackBot, payload: any) => {
     if (err) {
-      console.log('Error: Cannot to Slack');
+      console.log('Error: Cannot to connect Slack');
       process.exit(1);
     }
-    console.log(1);
+    
     const job: CronJob = new CronJob({
       cronTime: '00 00 00 * * 0-6',
 
       onTick: () => {
+        const endTime: number = Math.floor(Date.now() / 1000);
+        const startTime: number = endTime - 86400;
         Promise.all(userData.map(name => {
-          return getUserData(name);
+          return getUserData(name, endTime, startTime);
         }))
         .then(results => {
           console.log(results);
@@ -75,15 +78,15 @@ function spawnSlackBot() {
           for (let result of results) {
             sendMessage += result;
           }
-          /*
           bot.say({
             text: sendMessage,
             channel: channel_random,
-          })*/
+          })
+          /*
           bot.say({
             text: sendMessage,
             channel: channel_test,
-          })
+          })*/
         });
       },
 
@@ -98,15 +101,12 @@ function spawnSlackBot() {
 
     job.start();
   });
-}
+} 
 
-function getUserData(name: string) {
+function getUserData(name: string, endTime: number, startTime: number) {
   return new Promise(resolve => {
     // TODO: 0時に走らせるからその24時間前までの間のACを数える
     // NOTE: js date function returns unixtime stamp in a millisecond of accuracy.
-    const endTime: number = Math.floor(Date.now() / 1000);
-    const startTime: number = endTime - 86400;
-  
     let retData: StoreData = {
       ac: 0,
       pointsum: 0,
