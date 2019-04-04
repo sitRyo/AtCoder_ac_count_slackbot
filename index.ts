@@ -12,17 +12,37 @@ interface StoreData {
 }
 
 // from .env @see dotenv
+// dotenv doesn't have ts.d...? 
 const channel_random = require('dotenv').config().parsed.CHANNEL_RANDOM;
 const channel_test = require('dotenv').config().parsed.CHANNEL_TEST;
-const slackToken: string = require('dotenv').config().parsed.SLACK_TOKEN;
-if (!slackToken) {
-  console.log('Error: Specify token in environment.');
+const slackToken= require('dotenv').config().parsed.SLACK_TOKEN;
+
+try {
+  if (channel_random.error) {
+    throw channel_random.error;
+  }
+  if (channel_test.error) {
+    throw channel_test.error;
+  }
+  if (slackToken) {
+    throw slackToken.error;
+  }
+} catch (e) {
+  console.log(e);
   process.exit(1);
 }
 
 // get user data
 // so you need create /json/user.json file and put users ID.
-const userData: string[] = require('./json/user.json').user;
+let userData: string[] = [];
+try {
+  userData = require('./json/user.json').user;
+} catch (e) {
+  // maybe ./json/user.json didn't create.
+  console.log(e);
+  process.exit(1);
+}
+
 // api
 const api: string = 'https://kenkoooo.com/atcoder/atcoder-api/results?user=';
 
@@ -65,7 +85,6 @@ function spawnSlackBot() {
 function getUserData(name: string) {
   return new Promise(resolve => {
     // TODO: 0時に走らせるからその24時間前までの間のACを数える
-
     // NOTE: js date function returns unixtime stamp in a millisecond of accuracy.
     const endTime: number = Math.floor(Date.now() / 1000);
     const startTime: number = endTime - 86400;
@@ -79,6 +98,7 @@ function getUserData(name: string) {
     axios.get(api + name)
     .then((response: AxiosResponse) => {
       const size = response.data.length;
+
       for (let i = 0; i < size; i++) {
         const data: any = response.data[i];
         if (data.epoch_second < endTime && data.epoch_second >= startTime && data.result === 'AC') {
@@ -95,7 +115,6 @@ function getUserData(name: string) {
       console.log(err);
     })
   })
-
 }
 
 spawnSlackBot();
