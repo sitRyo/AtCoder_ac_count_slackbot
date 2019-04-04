@@ -4,6 +4,7 @@ import { SlackBot } from '../botkit/lib/Botkit.js';
 import { response } from 'express';
 import { resolve } from 'path';
 import { reject } from 'async';
+import { CronJob } from 'cron';
 
 interface StoreData {
   ac: number;
@@ -15,16 +16,17 @@ interface StoreData {
 // dotenv doesn't have ts.d...? 
 const channel_random = require('dotenv').config().parsed.CHANNEL_RANDOM;
 const channel_test = require('dotenv').config().parsed.CHANNEL_TEST;
-const slackToken= require('dotenv').config().parsed.SLACK_TOKEN;
+const slackToken = require('dotenv').config().parsed.SLACK_TOKEN;
 
+// error handling
 try {
-  if (channel_random.error) {
+  if (channel_random.error !== undefined) {
     throw channel_random.error;
   }
-  if (channel_test.error) {
+  if (channel_test.error !== undefined) {
     throw channel_test.error;
   }
-  if (slackToken) {
+  if (slackToken.error !== undefined) {
     throw slackToken.error;
   }
 } catch (e) {
@@ -59,26 +61,42 @@ function spawnSlackBot() {
       console.log('Error: Cannot to Slack');
       process.exit(1);
     }
+    console.log(1);
+    const job: CronJob = new CronJob({
+      cronTime: '00 00 00 * * 0-6',
 
-    Promise.all(userData.map(name => {
-      return getUserData(name);
-    }))
-    .then(results => {
-      console.log(results);
-      let sendMessage: string = '今日の精進状況\n'
-      for (let result of results) {
-        sendMessage += result;
-      }
-      /*
-      bot.say({
-        text: sendMessage,
-        channel: channel_random,
-      })*/
-      bot.say({
-        text: sendMessage,
-        channel: channel_test,
-      })
-    });
+      onTick: () => {
+        Promise.all(userData.map(name => {
+          return getUserData(name);
+        }))
+        .then(results => {
+          console.log(results);
+          let sendMessage: string = '今日の精進状況\n'
+          for (let result of results) {
+            sendMessage += result;
+          }
+          /*
+          bot.say({
+            text: sendMessage,
+            channel: channel_random,
+          })*/
+          bot.say({
+            text: sendMessage,
+            channel: channel_test,
+          })
+        });
+      },
+
+      onComplete: () => {
+        console.log('task is over!');
+      }, 
+
+      start: false,
+
+      timeZone: 'Asia/Tokyo',
+    })
+
+    job.start();
   });
 }
 
